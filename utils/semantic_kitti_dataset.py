@@ -30,7 +30,8 @@ def combine_images(folder, target_folder="."):
     # iterate over files and combine
     # 64x1024x5 (range, remission, xyz)
     combined = np.zeros((len(range_files), 64, 1024, 5), dtype=np.float32)
-    combined_labels = np.zeros((len(range_files), 64, 1024, 2), dtype=np.float32)
+    combined_labels = np.zeros((len(range_files), 64, 1024, 1), dtype=np.float32)
+    #combined_labels = np.zeros((len(range_files), 64, 1024, 1), dtype=np.float32) also with instances
     for i in tqdm(range(len(range_files))):
         range_img = Image.open(os.path.join(folder, range_files[i])) # 1 channel
         # get type of image
@@ -42,10 +43,10 @@ def combine_images(folder, target_folder="."):
         combined[i, :, :, 1] = np.array(remission_img)
         combined[i, :, :, 2:5] = np.array(xyz_img)
 
-        inst_label_img = Image.open(os.path.join(folder, inst_label_files[i]))
         sem_label_img = Image.open(os.path.join(folder, sem_label_files[i]))
-        combined_labels[i, :, :, 0] = np.array(inst_label_img)
-        combined_labels[i, :, :, 1] = np.array(sem_label_img)
+        inst_label_img = Image.open(os.path.join(folder, inst_label_files[i]))
+        combined_labels[i, :, :, 0] = np.array(sem_label_img)
+        #combined_labels[i, :, :, 1] = np.array(inst_label_img)
 
     # save numpy array
     print('Saving combined images of shape:', combined.shape, 'to', target_folder)
@@ -79,9 +80,13 @@ class SemanticKittiDataset(data.Dataset):
         img = self.images[idx]
         mask = self.labels[idx]
 
+        #classes_of_interest = [30.0]
+        mask = (mask == 30).astype(np.float32)
+
         # change shape to CxHxW
         img = img.transpose((2, 0, 1))
         mask = mask.transpose((2, 0, 1))
+
 
         if self.transform:
             img, mask = self.transform(img, mask)
@@ -91,8 +96,13 @@ class SemanticKittiDataset(data.Dataset):
     def show(self, idx):
         print('Image shape:', self.images[idx].shape)
         print('Label shape:', self.labels[idx].shape)
-        img = self.images[idx]
-        mask = self.labels[idx]
+        #img = self.images[idx]
+        #mask = self.labels[idx]
+        img, mask = self.__getitem__(idx)
+
+        img = img.transpose((1, 2, 0))  # CxHxW -> HxWxC
+        mask = mask.transpose((1, 2, 0))
+
         plt.figure(figsize=(10, 10))
 
         fig, ax = plt.subplots(5, 2)
@@ -111,13 +121,13 @@ class SemanticKittiDataset(data.Dataset):
         ax[4, 0].imshow(img[:, :, 4], cmap='turbo')
         ax[4, 0].set_title('Z')
 
-
         ax[0, 1].imshow(mask[:, :, 0], cmap='tab20')
-        ax[0, 1].set_title('Instance Label')
+        ax[0, 1].set_title('Semantic Label')
 
-        ax[1, 1].imshow(mask[:, :, 1], cmap='tab20')
-        ax[1, 1].set_title('Semantic Label')
+        #ax[1, 1].imshow(mask[:, :, 1], cmap='tab20')
+        #ax[1, 1].set_title('Instance Label')
 
         plt.show()
 
-#combine_images('../coco/data/images')
+
+#combine_images('../../../coco/data/images', "../")
